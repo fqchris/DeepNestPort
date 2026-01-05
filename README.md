@@ -57,7 +57,7 @@ Also take a look at the WPF Net.Core version: https://github.com/9swampy/DeepNes
 ## Scientific research
 Nest smarter, not harder: a hybrid vision-based deep reinforcement learning agent for packing 2D irregular geometries by rotational placement
 * https://d-nb.info/1372435646/34
-* https://link.springer.com/article/10.1007/s10845-025-02620-6
+* https://link.springer.com/article/10.1007/s10845-025-02620-6 (alternative)
 
 	
 ## Contributors
