@@ -172,11 +172,14 @@ namespace DeepNestLib
             }
             else
             {
-                s.Outers.AddRange(cntrs2);
-                if (s.Outers.Any(z => z.Points.Count < 3))
+                // Filter out contours with fewer than 3 points (invalid polygons)
+                // This can happen when LINE entities can't be connected due to precision gaps
+                var validContours = cntrs2.Where(z => z.Points.Count >= 3).ToArray();
+                if (validContours.Length == 0)
                 {
-                    throw new Exception("few points");
+                    throw new Exception("few points - no valid contours found");
                 }
+                s.Outers.AddRange(validContours);
 
                 ret.Add(s);
             }
@@ -184,7 +187,7 @@ namespace DeepNestLib
         }
 
         public static double RemoveThreshold = 10e-5;
-        public static double ClosingThreshold = 10e-2;
+        public static double ClosingThreshold = 0.1;
 
         public static LocalContour[] ConnectElements(DraftElement[] elems)
         {

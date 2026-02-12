@@ -19,6 +19,7 @@ namespace DeepNestLib
         internal override void Mult(double mult)
         {
             Start = Start.Mult(mult);
+            End = End.Mult(mult);
         }
     }
 

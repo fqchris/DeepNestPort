@@ -958,7 +958,7 @@ namespace DeepNestLib
                 //if(minwidth){
                 if (!minwidth.HasValue)
                 {
-                    fitness = double.NaN;
+                    fitness += sheetarea * 10; // Heavy penalty for unplaceable parts
                 }
                 else
                 {
