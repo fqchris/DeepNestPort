@@ -1762,11 +1762,8 @@ namespace DeepNestLib
                     {
                         window.nfpCache.Add(key, Background.cloneNfp(obj.nfp, inner).ToList());
                     }
-                    else
-                    {
-                        throw new Exception("trouble .cache allready has such key");
-                        //   window.nfpCache[key] = Background.cloneNfp(new[] { obj.nfp }, inner).ToList();
-                    }
+                    // else: key already cached — NFP for identical geometry+rotation is deterministic,
+                    // so the existing cached value is correct. This occurs with high-qty identical parts.
                 }
                 //console.log('cached: ',window.cache[key].poly);
                 //console.log('using', window.performance.memory.totalJSHeapSize/window.performance.memory.jsHeapSizeLimit);

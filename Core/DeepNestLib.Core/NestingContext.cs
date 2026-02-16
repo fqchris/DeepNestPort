@@ -183,10 +183,10 @@ namespace DeepNestLib
                     if (!sheetsIds.Contains(sheetid))
                     {
                         sheetsIds.Add(sheetid);
+                        totalSheetsArea += Math.Abs(GeometryUtil.polygonArea(Sheets.First(z => z.id == sheetid)));
                     }
 
                     var sheet = Sheets.First(z => z.id == sheetid);
-                    totalSheetsArea += GeometryUtil.polygonArea(sheet);
 
                     foreach (var ssitem in zitem.sheetplacements)
                     {
