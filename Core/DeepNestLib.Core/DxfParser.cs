@@ -30,6 +30,8 @@ namespace DeepNestLib
             {
                 mult = 25.4;
             }
+            if (mult > 1)
+                Console.Error.WriteLine($"[DxfParser] Unit conversion: {doc.DrawingVariables.InsUnits} -> mm (mult={mult}) for {Path.GetFileName(path)}");
 
             foreach (var polyline2D in doc.Entities.Polylines2D)
             {
