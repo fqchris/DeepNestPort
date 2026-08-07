@@ -12,6 +12,44 @@ namespace DeepNestLib
 {
     public class DxfParser
     {
+        /// <summary>
+        /// netDxf's release build swallows every reader exception and returns NULL from
+        /// DxfDocument.Load — the old bare Load call then NRE'd on the first dereference,
+        /// discarding the whole part with a bare "Object reference not set" (#548).
+        /// Known live class: Inventor flat-pattern DXFs carrying owner-handle references
+        /// (group code 330) to objects the export never wrote; netDxf NREs resolving them
+        /// in DxfReader.PostProcesses. Owner links are irrelevant to nesting geometry, so
+        /// on a null load strip every 330 code/value pair (a DXF is strictly alternating
+        /// code/value lines) and retry from memory. Still null → throw with a message that
+        /// names the file and the repair already tried, never a bare NRE.
+        /// </summary>
+        private static netDxf.DxfDocument LoadDocument(string path)
+        {
+            var doc = netDxf.DxfDocument.Load(path);
+            if (doc != null) return doc;
+
+            string[] lines = File.ReadAllLines(path);
+            var kept = new List<string>(lines.Length);
+            for (int i = 0; i + 1 < lines.Length; i += 2)
+            {
+                if (lines[i].Trim() == "330") continue;
+                kept.Add(lines[i]);
+                kept.Add(lines[i + 1]);
+            }
+            if (lines.Length % 2 == 1) kept.Add(lines[lines.Length - 1]);
+
+            using (var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(string.Join("\r\n", kept))))
+            {
+                doc = netDxf.DxfDocument.Load(ms);
+            }
+            if (doc == null)
+                throw new InvalidDataException(
+                    $"netDxf could not load '{Path.GetFileName(path)}' (returned null even after stripping owner-handle group 330; " +
+                    "netDxf swallows the real reader exception in release builds)");
+            Console.Error.WriteLine($"[DxfParser] Repaired dangling owner handles (group 330) to load {Path.GetFileName(path)}");
+            return doc;
+        }
+
         public static RawDetail[] LoadDxf(string path, bool split = false)
         {
             FileInfo fi = new FileInfo(path);
@@ -24,7 +62,7 @@ namespace DeepNestLib
             List<DraftElement> elems = new List<DraftElement>();
 
 
-            netDxf.DxfDocument doc = netDxf.DxfDocument.Load(path);
+            netDxf.DxfDocument doc = LoadDocument(path);
             double mult = 1;
             if (doc.DrawingVariables.InsUnits == netDxf.Units.DrawingUnits.Inches)
             {
@@ -99,7 +137,19 @@ namespace DeepNestLib
             foreach (var cr in doc.Entities.Splines)
             {
                 LocalContour cc = new LocalContour();
-                var list = cr.PolygonalVertexes(100);
+                // #548 fallback-audit: one untessellatable spline must not discard the whole
+                // part — skip just this entity, loudly, and let the rest of the outline survive.
+                IList<Vector3> list;
+                try
+                {
+                    list = cr.PolygonalVertexes(100);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[DxfParser] Skipping untessellatable spline in {Path.GetFileName(path)}: {ex.GetType().Name}: {ex.Message}");
+                    continue;
+                }
+                if (list == null || list.Count == 0) continue;
 
                 cc.Points.AddRange(list.Select(z => new PointF((float)(float)z.X, (float)z.Y)));
                 PolylineElement p = new PolylineElement()
