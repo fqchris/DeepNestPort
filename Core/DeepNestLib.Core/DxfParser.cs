@@ -50,7 +50,23 @@ namespace DeepNestLib
             return doc;
         }
 
-        public static RawDetail[] LoadDxf(string path, bool split = false)
+        /// <summary>
+        /// Parse a DXF into chained contours, in MILLIMETRES.
+        ///
+        /// <para><paramref name="mmPerUnitOverride"/> is the caller's full millimetres-per-drawing-unit
+        /// verdict for this file. It exists because <see cref="RemoveThreshold"/> and
+        /// <see cref="ClosingThreshold"/> are ABSOLUTE MILLIMETRE constants applied AFTER
+        /// <c>mult</c>: left to its own devices this parser converts INCHES and nothing else, so a
+        /// file declaring anything other than inches or millimetres reached the thresholds in its own
+        /// drawing units — <c>ClosingThreshold = 0.1</c> meant 0.1 inch (2.54 mm) on an undeclared
+        /// inch file and 0.1 foot (30.5 mm) on a Feet file, chaining together entities that are
+        /// nowhere near each other. Pass the full factor (25.4 for inches, 1.0 for mm, 10.0 for cm,
+        /// …) and every threshold below is back in the millimetres it was written for.</para>
+        ///
+        /// <para>Omit it (or pass a non-positive value) and the historical inches-only rule applies,
+        /// which is what the DeepNestPort UI and console sample still do.</para>
+        /// </summary>
+        public static RawDetail[] LoadDxf(string path, bool split = false, double mmPerUnitOverride = 0)
         {
             FileInfo fi = new FileInfo(path);
 
@@ -64,11 +80,15 @@ namespace DeepNestLib
 
             netDxf.DxfDocument doc = LoadDocument(path);
             double mult = 1;
-            if (doc.DrawingVariables.InsUnits == netDxf.Units.DrawingUnits.Inches)
+            if (mmPerUnitOverride > 0)
+            {
+                mult = mmPerUnitOverride;
+            }
+            else if (doc.DrawingVariables.InsUnits == netDxf.Units.DrawingUnits.Inches)
             {
                 mult = 25.4;
             }
-            if (mult > 1)
+            if (mult != 1)
                 Console.Error.WriteLine($"[DxfParser] Unit conversion: {doc.DrawingVariables.InsUnits} -> mm (mult={mult}) for {Path.GetFileName(path)}");
 
             foreach (var polyline2D in doc.Entities.Polylines2D)
@@ -238,7 +258,15 @@ namespace DeepNestLib
             return ret.ToArray();
         }
 
+        /// <summary>Shortest element (MILLIMETRES) that is real geometry rather than a duplicate point.</summary>
         public static double RemoveThreshold = 10e-5;
+
+        /// <summary>
+        /// Largest end-to-end gap (MILLIMETRES) that still counts as the same contour. Both this and
+        /// <see cref="RemoveThreshold"/> are applied to coordinates already multiplied by
+        /// <c>mult</c>, so they only mean millimetres when the caller passed a full
+        /// <c>mmPerUnitOverride</c> to <see cref="LoadDxf(string, bool, double)"/>.
+        /// </summary>
         public static double ClosingThreshold = 0.1;
 
         public static LocalContour[] ConnectElements(DraftElement[] elems)
